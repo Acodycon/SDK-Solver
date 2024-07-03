@@ -1,0 +1,50 @@
+    def reduction_by_constellation(self, full_set: List[SudokuCellButton], step_by_step):
+        unresolved_cells = [cell for cell in full_set if not cell.isResolved]
+        if unresolved_cells:
+            min_constellation_size = min([len(cell.possible_values) for cell in unresolved_cells])
+            max_constellation_size = len(unresolved_cells) - 1
+            possible_constellations = []
+            for size in range(min_constellation_size, max_constellation_size + 1, 1):
+                if size == 1:
+                    possible_constellations += combinations(full_set, size)
+                else:
+                    possible_constellations += combinations(unresolved_cells, size)
+            for combo in possible_constellations:
+                set_of_shared_possible_digits = set()
+                for cell in combo:
+                    cell.config(background="#FF4040")
+                    tksleep(0.1)
+                    set_of_shared_possible_digits |= cell.possible_values
+                if len(set_of_shared_possible_digits) == len(combo):
+                    for cell in combo:
+                        cell.config(background="#3D9140")
+                        tksleep(0.1)
+                    for cell in combo:
+                        cell.config(background="#C1CDCD")
+                        tksleep(0.01)
+                    for cell_to_be_reduced in unresolved_cells:
+                        cell_to_be_reduced.config(background="#FF4040")
+                        tksleep(0.1)
+                        if cell_to_be_reduced not in combo and not cell_to_be_reduced.isResolved:
+                            cell_to_be_reduced.config(background="#3D9140")
+                            tksleep(0.1)
+                            cell_to_be_reduced.possible_values -= set_of_shared_possible_digits
+                            if len(cell_to_be_reduced.possible_values) == 1:
+                                cell_to_be_reduced.config(background="#3D9140")
+                                tksleep(0.5)
+                                cell_to_be_reduced.set_value_by_com()
+                                unresolved_cells.remove(cell_to_be_reduced)
+                                tksleep(0.5)
+                                cell_to_be_reduced.config(background="#C1CDCD")
+                                tksleep(0.01)
+                                if step_by_step:
+                                    # return True to stop the loop
+                                    return True
+                                else:
+                                    continue
+                # untint the cells when they are no valid reduction constellation
+                for cell in combo:
+                    cell.config(background="#C1CDCD")
+                    tksleep(0.01)
+        # return false to not stop the loop
+        return False
