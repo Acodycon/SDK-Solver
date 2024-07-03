@@ -17,7 +17,7 @@ class SudokuBoard:
         board_hasnt_changed_in_x_iterations = 0
         iter_count = 0
         while board_hasnt_changed_in_x_iterations < 5:
-            print(f"iteration: {iter_count + 1}")
+            # print(f"iteration: {iter_count + 1}")
             board_before = [[cell.value for cell in self.rows[j]] for j in range(9)]
             for full_set in self.boxes:
                 self.reduction_by_constellation(full_set)
@@ -30,20 +30,20 @@ class SudokuBoard:
                 board_hasnt_changed_in_x_iterations += 1
             else:
                 board_hasnt_changed_in_x_iterations = 0
-            self.print_board()
+            # self.print_board()
             if self.check_solved_status():
                 self.isSolved = True
                 self.isSolvable = True
-                print(f"The board has been solved after {iter_count} iterations")
+                # print(f"The board has been solved after {iter_count} iterations")
                 break
         if self.check_solved_status():
             self.isSolved = True
             self.isSolvable = True
-            print(f"The board has been solved after {iter_count} iterations")
+            # print(f"The board has been solved after {iter_count} iterations")
         else:
             self.isSolved = False
             self.isSolvable = False
-            print("The board is not uniquely solvable")
+            # print("The board is not uniquely solvable")
 
     def check_solved_status(self):
         for row in self.rows:
