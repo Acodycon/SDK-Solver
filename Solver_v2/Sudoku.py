@@ -79,7 +79,7 @@ class Board9x9(Board):
                     containing_box=self.cell_boxes[(i // 3) * 3 + j // 3],
                     text="",
                     font=("Arial", 50),
-                    text_color=cd["black"],
+                    text_color=cd["tc_for_when_cell_is_empty"],
                     fg_color=cd["dark-grey"],
                     border_color=cd["black"],
                     hover_color=cd["pale-yellow"],
@@ -95,6 +95,17 @@ class Board9x9(Board):
                 self.cell_cols[j].append(cell)
                 self.cell_boxes[(i // 3) * 3 + j // 3].append(cell)
             self.cell_rows.append(cell_row)
+
+    def get_unresolved_digit_count(self):
+        return sum([sum([1 for cell in self.cell_rows[j] if not cell.isResolved]) for j in range(9)])
+
+    def get_resolved_digit_count(self):
+        return sum([sum([1 for cell in self.cell_rows[j] if cell.cget('text_color') == cd["banana"]]) for j in range(9)])
+
+    def get_given_digit_count(self):
+        print(self.cell_rows[0][0].cget('text_color'), cd["black"])
+        print(sum([sum([1 for cell in self.cell_rows[j] if cell.cget('text_color') == "#000000"]) for j in range(9)]))
+        return sum([sum([1 for cell in self.cell_rows[j] if cell.cget('text_color') == cd["black"]]) for j in range(9)])
 
     def get_possible_value_count(self):
         """gets the amount of possible values in all cells that aren't resolved.
@@ -175,23 +186,36 @@ class Cell(ctk.CTkButton):
             self.deselect()
 
     def select(self):
+        # if self.board.main_gui.current_alg_type is None:
+        #     for cell in self.containing_row:
+        #         cell.configure(fg_color=cd["very-dark-yellow"])
+        #     for cell in self.containing_col:
+        #         cell.configure(fg_color=cd["very-dark-yellow"])
+        #     for cell in self.containing_box:
+        #         cell.configure(fg_color=cd["very-dark-yellow"])
         if self.board.main_gui.current_alg_type is None:
-            for cell in self.containing_row:
-                cell.configure(fg_color=cd["very-dark-yellow"])
-            for cell in self.containing_col:
-                cell.configure(fg_color=cd["very-dark-yellow"])
-            for cell in self.containing_box:
-                cell.configure(fg_color=cd["very-dark-yellow"])
+            for row in self.board.cell_rows:
+                for cell in row:
+                    if cell.value == self.value and cell is not self and self.value is not None:
+                        cell.configure(fg_color=cd["medium-dark-yellow"])
+                    if cell in self.containing_row or cell in self.containing_col or cell in self.containing_box:
+                        cell.configure(fg_color=cd["very-dark-yellow"])
         self.configure(fg_color=cd["dark-yellow"])
 
     def deselect(self):
-        for cell in self.containing_row:
-            cell.configure(fg_color=cd["dark-grey"])
-        for cell in self.containing_col:
-            cell.configure(fg_color=cd["dark-grey"])
-        for cell in self.containing_box:
-            cell.configure(fg_color=cd["dark-grey"])
-        self.configure(fg_color=cd["dark-grey"])
+        for row in self.board.cell_rows:
+            for cell in row:
+                cell.configure(fg_color=cd["dark-grey"])
+
+    def update_cell_stats_labels(self):
+        self.board.main_gui.cell_value_label.value = self.value
+        self.board.main_gui.cell_pV_label.value = self.possible_values
+
+    def update_board_stats_labels(self):
+        self.board.main_gui.numbers_given_label.value = self.board.get_given_digit_count()
+        self.board.main_gui.numbers_resolved_label.value = self.board.get_resolved_digit_count()
+        self.board.main_gui.numbers_unresolved_label.value = self.board.get_unresolved_digit_count()
+        self.board.main_gui.possible_values_remaining_label.value = self.board.get_possible_value_count()
 
     def clear_value(self):
         self.value = None
@@ -206,13 +230,10 @@ class Cell(ctk.CTkButton):
             ctk_sleep(main_gui=self.board.main_gui,
                       t=0.1,
                       alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
-        if self.cget('text_color') == cd["black"]:
-            self.board.main_gui.numbers_given_label.value -= 1
-        elif self.cget('text_color') == cd["banana"]:
-            self.board.main_gui.numbers_resolved_label.value -= 1
-        self.board.main_gui.numbers_unresolved_label.value += 1
-        self.board.main_gui.possible_values_remaining_label.value = self.board.get_possible_value_count()
-        self.configure(text="")
+        self.configure(text="", text_color=cd["tc_for_when_cell_is_empty"])
+        if self.isSelected:
+            self.update_cell_stats_labels()
+        self.update_board_stats_labels()
         if self.board.main_gui.show_alg:
             self.configure(fg_color=cd["dark-grey"])
             ctk_sleep(main_gui=self.board.main_gui,
@@ -224,10 +245,10 @@ class Cell(ctk.CTkButton):
         self.isResolved = True
         self.possible_values = {value}
         # update stats label
-        self.board.main_gui.numbers_given_label.value += 1
-        self.board.main_gui.numbers_unresolved_label.value -= 1
-        self.board.main_gui.possible_values_remaining_label.value = self.board.get_possible_value_count()
         self.configure(text=str(value), text_color=cd["black"])
+        if self.isSelected:
+            self.update_cell_stats_labels()
+        self.update_board_stats_labels()
         if isSolvable(self.board):
             self.board.main_gui.board_unique_solution_label.configure(text="Does have a unique solution", text_color=cd["pale-green"])
         else:
@@ -238,10 +259,10 @@ class Cell(ctk.CTkButton):
         self.isResolved = True
         self.possible_values = {value}
         # update stats label
-        self.board.main_gui.numbers_given_label.value += 1
-        self.board.main_gui.numbers_unresolved_label.value -= 1
-        self.board.main_gui.possible_values_remaining_label.value = self.board.get_possible_value_count()
         self.configure(text=str(value), text_color=cd["black"])
+        if self.isSelected:
+            self.update_cell_stats_labels()
+        self.update_board_stats_labels()
 
     def set_value_by_com_solving(self, value):
         self.value = value
@@ -253,9 +274,9 @@ class Cell(ctk.CTkButton):
                       t=0.5,
                       alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
         self.configure(text=str(value), text_color=cd["banana"])
-        self.board.main_gui.numbers_resolved_label.value += 1
-        self.board.main_gui.numbers_unresolved_label.value -= 1
-        self.board.main_gui.possible_values_remaining_label.value = self.board.get_possible_value_count()
+        if self.isSelected:
+            self.update_cell_stats_labels()
+        self.update_board_stats_labels()
         if self.board.main_gui.show_alg:
             ctk_sleep(main_gui=self.board.main_gui,
                       t=0.5,
@@ -272,6 +293,8 @@ class Cell(ctk.CTkButton):
     def reduce_possible_values(self, values, n_of_pV_before_solve):
         n_of_pV_b4_redc = len(self.possible_values)
         self.possible_values -= values
+        if self.isSelected:
+            self.update_cell_stats_labels()
         n_of_pV_run_time = self.board.get_possible_value_count()
         progress = 1 - n_of_pV_run_time / n_of_pV_before_solve
         n_of_pV_aftr_redc = len(self.possible_values)

@@ -102,6 +102,7 @@ def solve_v3(main_gui, board):
                                         cell_to_be_reduced.configure(fg_color=cd["dark-grey"])
                                         ctk_sleep(main_gui=main_gui, t=0.1,
                                                   alg_speed_multiplier=main_gui.alg_speed_multiplier)
+        main_gui.current_alg_type = Algorithm.SOLVING.ELIMINATION_BY_CONSTELLATION
         for index_row, row in enumerate(board.cell_rows):
             for index_col, cell in enumerate(row):
                 if cell.isResolved:
@@ -279,6 +280,8 @@ def clear_board(main_gui, board):
 
 def generate(main_gui, board, diff):
     print("generate")
+    if board.selected_cell:
+        board.selected_cell.deselect()
     clear_board(main_gui=main_gui, board=board)
     main_gui.current_alg_type = Algorithm.GENERATING.FILLING
     fill_board(main_gui, board)
