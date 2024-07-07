@@ -1,3 +1,5 @@
+import copy
+import random
 from enum import Enum
 from itertools import combinations
 from typing import Any, List
@@ -96,11 +98,23 @@ class Board9x9(Board):
                 self.cell_boxes[(i // 3) * 3 + j // 3].append(cell)
             self.cell_rows.append(cell_row)
 
+    def get_unresolved_cells(self):
+        unresolved_cells = []
+        for row in self.cell_rows:
+            for cell in row:
+                if not cell.isResolved:
+                    unresolved_cells.append(cell)
+        return unresolved_cells
+
+    def get_possible_mutations(self):
+        return pow(9, sum([sum([1 for cell in self.cell_rows[j] if not cell.isResolved]) for j in range(9)]))
+
     def get_unresolved_digit_count(self):
         return sum([sum([1 for cell in self.cell_rows[j] if not cell.isResolved]) for j in range(9)])
 
     def get_resolved_digit_count(self):
-        return sum([sum([1 for cell in self.cell_rows[j] if cell.cget('text_color') == cd["banana"]]) for j in range(9)])
+        return sum(
+            [sum([1 for cell in self.cell_rows[j] if cell.cget('text_color') == cd["banana"]]) for j in range(9)])
 
     def get_given_digit_count(self):
         print(self.cell_rows[0][0].cget('text_color'), cd["black"])
@@ -110,7 +124,8 @@ class Board9x9(Board):
     def get_possible_value_count(self):
         """gets the amount of possible values in all cells that aren't resolved.
         Helper function for the progress bar"""
-        return sum([sum([len(cell.possible_values) for cell in self.cell_rows[j] if not cell.isResolved]) for j in range(9)])
+        return sum(
+            [sum([len(cell.possible_values) for cell in self.cell_rows[j] if not cell.isResolved]) for j in range(9)])
 
     def get_fill_status(self):
         """returns a float value between 0 and 1 that represents the percentage to which the board is filled i.e. 0 = empty, 1 = full"""
@@ -132,10 +147,6 @@ class Board9x9(Board):
             if len(box) != len(set(box)):
                 return False
         return True if self.get_fill_status() == 1 else False
-
-
-
-
 
 
 class Board6x6(Board):
@@ -186,13 +197,6 @@ class Cell(ctk.CTkButton):
             self.deselect()
 
     def select(self):
-        # if self.board.main_gui.current_alg_type is None:
-        #     for cell in self.containing_row:
-        #         cell.configure(fg_color=cd["very-dark-yellow"])
-        #     for cell in self.containing_col:
-        #         cell.configure(fg_color=cd["very-dark-yellow"])
-        #     for cell in self.containing_box:
-        #         cell.configure(fg_color=cd["very-dark-yellow"])
         if self.board.main_gui.current_alg_type is None:
             for row in self.board.cell_rows:
                 for cell in row:
@@ -212,6 +216,8 @@ class Cell(ctk.CTkButton):
         self.board.main_gui.cell_pV_label.value = self.possible_values
 
     def update_board_stats_labels(self):
+        possible_mutations = "{:.3e}".format(self.board.get_possible_mutations())
+        self.board.main_gui.possible_mutations_label.configure(text=f"Possible mutations: {possible_mutations}")
         self.board.main_gui.numbers_given_label.value = self.board.get_given_digit_count()
         self.board.main_gui.numbers_resolved_label.value = self.board.get_resolved_digit_count()
         self.board.main_gui.numbers_unresolved_label.value = self.board.get_unresolved_digit_count()
@@ -250,9 +256,11 @@ class Cell(ctk.CTkButton):
             self.update_cell_stats_labels()
         self.update_board_stats_labels()
         if isSolvable(self.board):
-            self.board.main_gui.board_unique_solution_label.configure(text="Does have a unique solution", text_color=cd["pale-green"])
+            self.board.main_gui.board_unique_solution_label.configure(text="Does have a unique solution",
+                                                                      text_color=cd["pale-green"])
         else:
-            self.board.main_gui.board_unique_solution_label.configure(text="Does not have a unique solution", text_color=cd["red"])
+            self.board.main_gui.board_unique_solution_label.configure(text="Does not have a unique solution",
+                                                                      text_color=cd["red"])
 
     def set_value_by_com_generating(self, value):
         self.value = value
@@ -271,7 +279,7 @@ class Cell(ctk.CTkButton):
         if self.board.main_gui.show_alg:
             self.configure(fg_color=cd["pale-green"])
             ctk_sleep(main_gui=self.board.main_gui,
-                      t=0.5,
+                      t=0.1,
                       alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
         self.configure(text=str(value), text_color=cd["banana"])
         if self.isSelected:
@@ -279,7 +287,7 @@ class Cell(ctk.CTkButton):
         self.update_board_stats_labels()
         if self.board.main_gui.show_alg:
             ctk_sleep(main_gui=self.board.main_gui,
-                      t=0.5,
+                      t=0.1,
                       alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
             self.configure(fg_color=cd["dark-grey"])
 
@@ -289,6 +297,7 @@ class Cell(ctk.CTkButton):
                                      [cell.value for cell in self.containing_col],
                                      [cell.value for cell in self.containing_box]]
         )
+
 
     def reduce_possible_values(self, values, n_of_pV_before_solve):
         n_of_pV_b4_redc = len(self.possible_values)
@@ -311,36 +320,149 @@ class Cell(ctk.CTkButton):
                 print(self.board.main_gui.show_alg)
                 if self.board.main_gui.show_alg:
                     self.configure(fg_color=cd["banana"])
-                    ctk_sleep(main_gui=self.board.main_gui, t=0.1, alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
+                    ctk_sleep(main_gui=self.board.main_gui, t=0.1,
+                              alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
                     self.configure(fg_color=cd["dark-grey"])
             alg_progress_bar_handler(main_gui=self.board.main_gui, progress=progress)
             return False
 
+    def set_value_for_opmzd_bcktrckng(self, value):
+        self.value = value
+        self.isResolved = True
+        if self.board.main_gui.show_alg:
+            self.configure(fg_color=cd["pale-green"])
+            ctk_sleep(main_gui=self.board.main_gui,
+                      t=0.1,
+                      alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
+        self.configure(text=str(value), text_color=cd["banana"])
+        if self.board.main_gui.show_alg:
+            ctk_sleep(main_gui=self.board.main_gui,
+                      t=0.1,
+                      alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
+            self.configure(fg_color=cd["dark-grey"])
+
+    def clear_value_for_opmzd_bcktrckng(self):
+        self.value = None
+        self.isResolved = False
+        if self.board.main_gui.show_alg:
+            self.configure(fg_color=cd["red"])
+            ctk_sleep(main_gui=self.board.main_gui,
+                      t=0.1,
+                      alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
+        self.configure(text="", text_color=cd["tc_for_when_cell_is_empty"])
+        if self.board.main_gui.show_alg:
+            self.configure(fg_color=cd["dark-grey"])
+            ctk_sleep(main_gui=self.board.main_gui,
+                      t=0.1,
+                      alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
+
+    def reduce_values_for_opmzd_bcktrckng(self, values):
+        n_of_pV_b4_redc = len(self.possible_values)
+        self.possible_values -= values
+        n_of_pV_aftr_redc = len(self.possible_values)
+        if len(self.possible_values) == 1:  # cell gets resolved
+            self.set_value_by_com_solving(value=list(self.possible_values)[0])
+        else:
+            if n_of_pV_b4_redc > n_of_pV_aftr_redc:  # cell gets reduced branch
+                self.board.main_gui.reductions_made_label.value += 1
+                if self.board.main_gui.show_alg:
+                    self.configure(fg_color=cd["banana"])
+                    ctk_sleep(main_gui=self.board.main_gui, t=0.1,
+                              alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
+                    self.configure(fg_color=cd["dark-grey"])
 
 class BackgroundBoardNbN:
 
     def __init__(self, board: Board9x9):
-        self.cell_rows = [[BackgroundCell(cell) for cell in board.cell_rows[j]] for j in range(9)]
-        self.cell_cols = [[BackgroundCell(cell) for cell in board.cell_cols[j]] for j in range(9)]
-        self.cell_boxes = [[BackgroundCell(cell) for cell in board.cell_boxes[j]] for j in range(9)]
+        self.og_board = board
+        self.cell_rows = []
+        self.cell_cols = [[] for i in range(9)]
+        self.cell_boxes = [[] for i in range(9)]
+        for row_index, row in enumerate(board.cell_rows):
+            cell_row = []
+            for col_index, cell in enumerate(row):
+                bg_cell = BackgroundCell(
+                    c_row=cell_row,
+                    c_col=self.cell_cols[col_index],
+                    c_box=self.cell_boxes[(row_index // 3) * 3 + col_index // 3],
+                    cell=cell)
+                cell_row.append(bg_cell)
+                self.cell_cols[col_index].append(bg_cell)
+                self.cell_boxes[(row_index // 3) * 3 + col_index // 3].append(bg_cell)
+            self.cell_rows.append(cell_row)
 
     def print_board(self):
         for row in self.cell_rows:
             print([cell.value for cell in row])
 
+    def get_unresolved_cells(self):
+        unresolved_cells = []
+        for row in self.cell_rows:
+            for cell in row:
+                if not cell.isResolved:
+                    unresolved_cells.append(cell)
+        return unresolved_cells
+
+    def solve_alg_backtracking(self):
+        """try all possible values"""
+        unresolved_cells = self.get_unresolved_cells()
+        for unresolved_cell in unresolved_cells:
+            for num in unresolved_cell.possible_values:
+                if unresolved_cell.isValid(num):
+                    unresolved_cell.set_value(num)
+                    if self.solve_alg_backtracking():
+                        return True
+                    unresolved_cell.clear_value()
+            return False
+        return True
+
+    def reduce_all_possible_values(self):
+        """reduction by soduko"""
+        unresolved_cells = self.get_unresolved_cells()
+        for unresolved_cell in unresolved_cells:
+            pVs_for_unresolved_cell = {}
+            for pV in range(1, 10):
+                if unresolved_cell.isValid(pV):
+                    pVs_for_unresolved_cell |= {pV}
+            unresolved_cell.possible_values = pVs_for_unresolved_cell
+
+    def print_back_to_og_board(self):
+        for row_index, og_row in enumerate(self.og_board.cell_rows):
+            for col_index, og_cell in enumerate(og_row):
+                if self.cell_rows[row_index][col_index].isResolved:
+                    og_cell.set_value_by_com_generating(value=self.cell_rows[row_index][col_index].value)
+
 
 class BackgroundCell:
 
-    def __init__(self, cell: Cell):
+    def __init__(self, c_row, c_col, c_box, cell):
+        self.c_row = c_row
+        self.c_col = c_col
+        self.c_box = c_box
         self.value = cell.value
         self.isResolved = cell.isResolved
-        self.possible_values = {pV for pV in range(1,10)}
+        self.possible_values = {pV for pV in range(1, 10)}
 
     def reduce_possible_values(self, values):
         self.possible_values -= values
         if len(self.possible_values) == 1:
             self.value = list(self.possible_values)[0]
             self.isResolved = True
-            return True
-        else:
-            return False
+
+    def clear_value(self):
+        self.value = None
+        self.isResolved = False
+        self.possible_values = {pV for pV in range(1, 10)}
+
+    def set_value(self, value):
+        self.value = value
+        self.isResolved = True
+        self.possible_values = {value}
+
+    def isValid(self, value):
+        """returns True if the digit is valid"""
+        return not any(
+            value in lst for lst in [[cell.value for cell in self.c_row],
+                                     [cell.value for cell in self.c_col],
+                                     [cell.value for cell in self.c_box]]
+        )

@@ -42,6 +42,9 @@ class Algorithm:
     class SOLVING(Enum):
         ELIMINATION_BY_CONSTELLATION = "Elimination by constellation"
         ELIMINATION_BY_SUDOKU = "Elimination by sudoku"
+        ELIMINATION_OPTIMIZED = "Optimized Elimination"
+        BACKTRACKING = "Backtracking"
+        BACKTRACKING_OPTIMIZED = "Optimized Backtracking"
 
 
 class ValueLabel(ctk.CTkLabel):
