@@ -436,7 +436,7 @@ def reset_board(main_gui, board):
     print("reset board")
     main_gui.current_alg_type = Algorithm.CLEARING.RESETTING
     main_gui.recursions_checked_label.value = 0
-    main_gui.reductions_made_label.value = 0
+    main_gui.reductions_by_constellation_label.value = 0
     main_gui.constellations_checked_label.value = 0
     solved_cells = []
     for row in board.cell_rows:  # Gets all cells to be cleared in one list, to enable progressbar tracking
@@ -459,7 +459,7 @@ def clear_board(main_gui, board):
     main_gui.numbers_unresolved_label.value = 81
     main_gui.recursions_made_label.value = 0
     main_gui.reductions_checked_label.value = 0
-    main_gui.reductions_made_label.value = 0
+    main_gui.reductions_by_constellation_label.value = 0
     main_gui.constellations_checked_label.value = 0
     resolved_cells = []
     for row in board.cell_rows:  # Gets all cells to be cleared in one list, to enable progressbar tracking
