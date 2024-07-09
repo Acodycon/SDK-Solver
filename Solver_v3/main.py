@@ -6,8 +6,7 @@ from typing import Any
 import customtkinter as ctk
 import random
 
-from Solver_v2.Utils import Difficulty, SolveType, Algorithm, get_difficulty_range, ValueLabel
-from Solver_v3.SudokuV3 import CellChange
+from Solver_v3.Utils import Difficulty, SolveType, Algorithm, ValueLabel, CellChange, BoardType
 from Themes.colors import color_dict as cd
 
 ctk.set_appearance_mode("dark")
@@ -34,9 +33,6 @@ def alg_label_handler(main_gui, alg_type):
         main_gui.current_alg_label.configure(text=f"Current algorithm: {alg_type.value} . . . ", font=("Arial", 20))
 
 
-class BoardType(Enum):
-    NINE_X_NINE = 9
-    SIX_X_SIX = 6
 
 
 class Board(ctk.CTkFrame):
@@ -114,7 +110,6 @@ class Board9x9(Board):
         self.update_all_board_references()
         # checks if the board has any unresolved values left
         if len(self.unresolved_cells) != 0:
-            self.main_gui.board_solved_status_label.configure(text="Not solved", text_color=cd["red"])
             return False
         # checks if every cells value only appears once in every row, col and box containing the cell
         for cell in self.cells:
@@ -123,9 +118,7 @@ class Board9x9(Board):
                 [c.value for c in cell.containing_col].count(cell.value),
                 [c.value for c in cell.containing_box].count(cell.value)
             ]) != 3:
-                self.main_gui.board_solved_status_label.configure(text="Not solved", text_color=cd["red"])
                 return False
-        self.main_gui.board_solved_status_label.configure(text="Solved", text_color=cd["pale-green"])
         return True
 
     @property
@@ -191,6 +184,8 @@ class Board9x9(Board):
             # set progress bar
             progress = index / 80
             alg_progress_bar_handler(main_gui=self.main_gui, progress=progress)
+        self.update_all_board_references()
+        self.update_UI_stats()
         self.main_gui.current_alg_type = None
 
     def reset_board(self):
@@ -201,12 +196,13 @@ class Board9x9(Board):
         self.main_gui.reductions_by_sudoku_label.value = 0
         self.main_gui.constellations_checked_label.value = 0
         self.selected_cell = None
-        self.update_all_board_references()
         resolved_cell_count = len(self.resolved_cells)  # For progress
         for i, c in enumerate(self.resolved_cells):
             c.clear_value()
             progress = i / resolved_cell_count - 1
             alg_progress_bar_handler(main_gui=self.main_gui, progress=progress)
+        self.update_all_board_references()
+        self.update_UI_stats()
         self.main_gui.current_alg_type = None
 
     def update_all_board_references(self):
@@ -245,11 +241,14 @@ class Board9x9(Board):
                     self.given_cells.append(cell)
             self.cell_rows_unresolved.append(cell_row_unresolved)
             self.cell_rows_resolved.append(cell_row_resolved)
-        self.update_UI_stats()
 
     def update_UI_stats(self):
         if self.selected_cell:
-            self.selected_cell.update_UI_stats()
+            self.selected_cell.update_cell_UI_stats()
+        if self.isSolved:
+            self.main_gui.board_solved_status_label.configure(text="Solved", text_color=cd["pale-green"])
+        else:
+            self.main_gui.board_solved_status_label.configure(text="Not solved", text_color=cd["red"])
         if self.isUniquelySolvable:
             self.main_gui.board_unique_solution_label.configure(text="Has a unique solution ",
                                                                 text_color=cd["pale-green"])
@@ -306,15 +305,12 @@ class Cell(ctk.CTkButton):
                     if cell in self.containing_row or cell in self.containing_col or cell in self.containing_box:  # Tint all places a digit that's here couldn't go
                         cell.configure(fg_color=cd["very-dark-yellow"])
         self.configure(fg_color=cd["dark-yellow"])  # Tint the selected cell itself
+        self.update_cell_UI_stats()
 
     def deselect(self):
         for row in self.board.cell_rows:
             for cell in row:
                 cell.configure(fg_color=cd["dark-grey"])
-
-    def update_UI_stats(self):
-        self.board.main_gui.cell_value_label.value = self.value
-        self.board.main_gui.cell_pV_label.value = self.possible_values
 
     def board_stats_handler(self, change_state):
         """
@@ -402,11 +398,12 @@ class Cell(ctk.CTkButton):
     def reduce_possible_values(self, values):
         pV_b4 = len(self.possible_values)
         self.possible_values -= values
+        self.update_cell_UI_stats()
         pV_aftr = len(self.possible_values)
         if len(self.possible_values) == 1:  # Cell gets resolved branch
             self.set_resolved_value(list(self.possible_values)[0])
         if pV_aftr < pV_b4:  # Cell gets reduced branch
-            if self is not self.board.selected_cell:
+            if self.board.main_gui.show_alg and self is not self.board.selected_cell:
                 self.configure(fg_color=cd["banana"])
                 ctk_sleep(main_gui=self.board.main_gui, t=0.1,
                           alg_speed_multiplier=self.board.main_gui.alg_speed_multiplier)
@@ -640,6 +637,7 @@ class BackgroundSolver:
         self.main_gui.reductions_by_sudoku_label.value = self.reductions_by_sudoku
         self.main_gui.reductions_by_constellation_label.value = self.reductions_by_constellations
         self.main_gui.constellations_checked_label.value = self.constellations_checked
+        self.main_gui.board.update_UI_stats()
 
     def backtracking(self):
         unresolved_cells = [bgc for bgc in self.bg_board.cells if not bgc.isResolved]
@@ -762,12 +760,15 @@ class Solver:
             case Algorithm.SOLVING.BACKTRACKING:
                 self.board.update_all_board_references()
                 self.main_gui.current_alg_type = Algorithm.SOLVING.BACKTRACKING
-                self.backtracking(unresolved_cells=self.board.unresolved_cells)
+                uCs = [c for c in self.board.unresolved_cells]
+                random.shuffle(uCs)
+                self.backtracking(unresolved_cells=uCs)
             case Algorithm.SOLVING.BACKTRACKING_OPTIMIZED:
                 self.main_gui.current_alg_type = Algorithm.SOLVING.ELIMINATION_BY_SUDOKU
                 self.reduction_by_sudoku()
                 self.board.update_all_board_references()
                 self.backtracking(unresolved_cells=self.board.unresolved_cells)
+        self.board.update_UI_stats()
 
     def backtracking(self, unresolved_cells):
         for c in unresolved_cells:
@@ -802,20 +803,27 @@ class Solver:
             self.reduction_by_sudoku()
             self.main_gui.current_alg_type = Algorithm.SOLVING.ELIMINATION_BY_CONSTELLATION
             self.board.update_all_board_references()
-            for row in self.board.cell_rows_unresolved:
+            for i, row in enumerate(self.board.cell_rows_unresolved):
+                progress = i / 24
+                alg_progress_bar_handler(main_gui=self.main_gui, progress=progress)
                 self.reduction_by_constellation_optimized_set(cell_set=row)
             self.board.update_all_board_references()
-            for col in self.board.cell_cols_unresolved:
+            for i, col in enumerate(self.board.cell_cols_unresolved):
+                progress = i / 24 + 1/3
+                alg_progress_bar_handler(main_gui=self.main_gui, progress=progress)
                 self.reduction_by_constellation_optimized_set(cell_set=col)
             self.board.update_all_board_references()
-            for box in self.board.cell_boxes_unresolved:
+            for i, box in enumerate(self.board.cell_boxes_unresolved):
+                progress = i / 24 + 2/3
+                alg_progress_bar_handler(main_gui=self.main_gui, progress=progress)
                 self.reduction_by_constellation_optimized_set(cell_set=box)
+        alg_progress_bar_handler(main_gui=self.main_gui, progress=0)
         self.main_gui.current_alg_type = None
 
     def reduction_by_sudoku(self):
         self.board.update_all_board_references()
         rgCs = [c for c in self.board.cells if c.isResolved or c.isGiven]  # get all resolved or given cells
-        for rgC in rgCs:
+        for i, rgC in enumerate(rgCs):
             if rgC is not self.board.selected_cell:
                 rgC.configure(fg_color=cd["light-grey"])
             uCs = self.get_unresolved_cells_in_rcb(
@@ -823,6 +831,8 @@ class Solver:
             for uC in uCs:  # Reduce the unresolved cell's pVs by the value of the resolved or given cell
                 b4 = len(uC.possible_values)
                 uC.reduce_possible_values({rgC.value})
+                progress = i / (len(rgCs) - 1)
+                alg_progress_bar_handler(main_gui=self.main_gui, progress=progress)
                 aftr = len(uC.possible_values)
                 self.main_gui.reductions_by_sudoku_label.value += b4 - aftr
                 if uC.isResolved:
@@ -938,6 +948,7 @@ class Generator:
         self.main_gui.current_alg_type = Algorithm.GENERATING.FILLING
         self.fill_board_by_backtracking()
         self.standard_reduction()
+        self.board.update_UI_stats()
 
     def fill_board_by_backtracking(self):
         self.main_gui.recursions_made_label.value += 1
@@ -1008,6 +1019,7 @@ class BackgroundGenerator:
         self.fill_board_by_backtracking()
         self.standard_reduction()
         self.bg_board.print_back_to_og_board_as_given()
+        self.main_gui.board.update_UI_stats()
 
     def fill_board_by_backtracking(self):
         self.main_gui.recursions_made_label.value += 1
@@ -1158,7 +1170,7 @@ class MainGUI:
             from_=1,
             to=100,
             command=lambda value: self.on_slider_change(value=value))
-        self.alg_speed_slider.grid(row=0, column=1, padx=(110, 50), pady=(35, 15))
+        self.alg_speed_slider.grid(row=0, column=1, padx=(110, 50), pady=(15, 15))
 
         self.show_alg_label = ctk.CTkLabel(
             master=self.button_frame,
@@ -1508,6 +1520,8 @@ class MainGUI:
             elif event.char.isdigit() and event.char != '0':
                 if int(event.char) == self.board.selected_cell.value:
                     self.board.selected_cell.clear_value()
+                    self.board.isSolved
+                    self.board.isUniquelySolvable
                 else:
                     self.board.selected_cell.set_given_value(value=int(event.char))
             elif event.keysym == "BackSpace":

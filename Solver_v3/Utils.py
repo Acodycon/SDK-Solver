@@ -18,6 +18,20 @@ class Difficulty(Enum):
     EXTREME = 3
 
 
+class CellChange(Enum):
+    UNRESOLVED_TO_RESOLVED = 0
+    UNRESOLVED_TO_GIVEN = 1
+    RESOLVED_TO_UNRESOLVED = 2
+    RESOLVED_TO_GIVEN = 3
+    GIVEN_TO_UNRESOLVED = 4
+    GIVEN_TO_RESOLVED = 5
+
+
+class BoardType(Enum):
+    NINE_X_NINE = 9
+    SIX_X_SIX = 6
+
+
 def get_difficulty_range(diff: Difficulty):
     match diff:
         case Difficulty.EASY:

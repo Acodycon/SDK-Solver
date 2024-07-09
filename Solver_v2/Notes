@@ -1,8 +1,3 @@
-# TODO(implement solving in the background)
-#      i.e.: Don't use the same functions for both showing alg and not showing alg,
-#            meaning implement the background solving equivalents of the normal solving algorithms,
-#            so that it goes a lot faster
-#      implement a stop algorithm button
 # Ideas:
 # Webscrapers to scrape sudoku boards from websites like sudoku.com to instantly copy the boards into the program
 # Maybe implement a funtion to automatically solve given sudokus on the website, pass that solve on to it, refresh and solve the next one.

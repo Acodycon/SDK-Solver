@@ -4,7 +4,7 @@ import customtkinter as ctk
 import random
 
 from PyScripts import sudoku
-from Solver_v2.Utils import Difficulty, SolveType, Algorithm, get_difficulty_range, ValueLabel
+from Solver_v3.Utils import Difficulty, SolveType, Algorithm, get_difficulty_range, ValueLabel
 from Themes.colors import color_dict as cd
 import Solver_v2.Sudoku as Sudoku
 
@@ -1049,8 +1049,3 @@ def isSolvable(board):
     board_copy.solve()
     board_copy.print_board()
     return board_copy.isSolvable
-
-
-if __name__ == "__main__":
-    MainGUI()
-

@@ -717,7 +717,3 @@ def main():
     #    board.print_box(3)
     #board.solve()
     MainGUI()
-
-
-if __name__ == "__main__":
-    main()
