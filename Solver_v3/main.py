@@ -621,25 +621,25 @@ class BackgroundSolver:
             case Algorithm.SOLVING.ELIMINATION_BY_CONSTELLATION:
                 if self.isBoardUniquelySolvable:
                     self.reduction_by_constellation()
-                    self.bg_board.print_back_to_og_board()
             case Algorithm.SOLVING.ELIMINATION_OPTIMIZED:
                 if self.isBoardUniquelySolvable:
                     self.reduction_by_constellation_optimized()
-                    self.bg_board.print_back_to_og_board()
             case Algorithm.SOLVING.BACKTRACKING:
                 self.backtracking()
-                self.bg_board.print_back_to_og_board()
             case Algorithm.SOLVING.BACKTRACKING_OPTIMIZED:
                 self.reduction_by_sudoku()
                 self.backtracking()
-                self.bg_board.print_back_to_og_board()
+            case Algorithm.SOLVING.ELIMINATION_OPTIMIZED_PLUS_BACKTRACKING:
+                self.reduction_by_constellation_plus_backtracking()
         self.main_gui.recursions_checked_label.value = self.recursions_checked
         self.main_gui.reductions_by_sudoku_label.value = self.reductions_by_sudoku
         self.main_gui.reductions_by_constellation_label.value = self.reductions_by_constellations
         self.main_gui.constellations_checked_label.value = self.constellations_checked
+        self.bg_board.print_back_to_og_board()
         self.main_gui.board.update_UI_stats()
 
     def backtracking(self):
+        print("backtracking")
         unresolved_cells = [bgc for bgc in self.bg_board.cells if not bgc.isResolved]
         for bgc in unresolved_cells:
             for value in bgc.possible_values:
@@ -735,11 +735,29 @@ class BackgroundSolver:
                     shared_pVs |= bgc.possible_values
                 if len(shared_pVs) == len(constellation):
                     for bgcR in cell_set:
-                        if bgcR not in constellation and bgcR.isUnresolved:
+                        if bgcR not in constellation and not bgcR.isResolved:
                             b4 = len(bgcR.possible_values)
                             bgcR.reduce_possible_values(shared_pVs)
                             aftr = len(bgcR.possible_values)
                             self.reductions_by_constellations += b4 - aftr
+
+    def reduction_by_constellation_plus_backtracking(self):
+        print("new alg")
+        board_b4 = 0
+        board_aftr = 1
+        while board_b4 != board_aftr:
+            board_b4 = [c.value for c in self.bg_board.cells]
+            self.reduction_by_sudoku()
+            for row in [[c for c in self.bg_board.cell_rows[j] if not c.isResolved] for j in range(9)]:
+                self.reduction_by_constellation_optimized_set(cell_set=row)
+            for col in [[c for c in self.bg_board.cell_cols[j] if not c.isResolved] for j in range(9)]:
+                self.reduction_by_constellation_optimized_set(cell_set=col)
+            for box in [[c for c in self.bg_board.cell_boxes[j] if not c.isResolved] for j in range(9)]:
+                self.reduction_by_constellation_optimized_set(cell_set=box)
+            board_aftr = [c.value for c in self.bg_board.cells]
+        self.reduction_by_sudoku()
+        print("red by sudoku fired")
+        self.backtracking()
 
 
 class Solver:
@@ -764,10 +782,11 @@ class Solver:
                 random.shuffle(uCs)
                 self.backtracking(unresolved_cells=uCs)
             case Algorithm.SOLVING.BACKTRACKING_OPTIMIZED:
-                self.main_gui.current_alg_type = Algorithm.SOLVING.ELIMINATION_BY_SUDOKU
                 self.reduction_by_sudoku()
                 self.board.update_all_board_references()
                 self.backtracking(unresolved_cells=self.board.unresolved_cells)
+            case Algorithm.SOLVING.ELIMINATION_OPTIMIZED_PLUS_BACKTRACKING:
+                self.reduction_by_constellation_plus_backtracking()
         self.board.update_UI_stats()
 
     def backtracking(self, unresolved_cells):
@@ -821,6 +840,7 @@ class Solver:
         self.main_gui.current_alg_type = None
 
     def reduction_by_sudoku(self):
+        self.main_gui.current_alg_type = Algorithm.SOLVING.ELIMINATION_BY_SUDOKU
         self.board.update_all_board_references()
         rgCs = [c for c in self.board.cells if c.isResolved or c.isGiven]  # get all resolved or given cells
         for i, rgC in enumerate(rgCs):
@@ -861,9 +881,9 @@ class Solver:
             for size in range(min_con_size, max_con_size):
                 possible_constellations += combinations(cell_set, size)
             for constellation in possible_constellations:
+                self.main_gui.constellations_checked_label.value += 1
                 shared_pVs = set()
                 for c in constellation:
-                    self.main_gui.constellations_checked_label.value += 1
                     if c is not self.board.selected_cell:
                         c.configure(fg_color=cd["grey"])
                         ctk_sleep(main_gui=self.main_gui, t=0.1,
@@ -901,9 +921,9 @@ class Solver:
             for size in range(1, 9):
                 possible_constellations += combinations(cell_set, size)
             for constellation in possible_constellations:
+                self.main_gui.constellations_checked_label.value += 1
                 shared_pVs = set()
                 for c in constellation:
-                    self.main_gui.constellations_checked_label.value += 1
                     if c is not self.board.selected_cell:
                         c.configure(fg_color=cd["grey"])
                         ctk_sleep(main_gui=self.main_gui, t=0.1,
@@ -932,6 +952,38 @@ class Solver:
                             c.configure(fg_color=cd["dark-grey"])
                             ctk_sleep(main_gui=self.main_gui, t=0.1,
                                       alg_speed_multiplier=self.main_gui.alg_speed_multiplier)
+
+    def reduction_by_constellation_plus_backtracking(self):
+        board_b4 = 0
+        board_aftr = 1
+        no_change_iter_count = 0
+        while no_change_iter_count < 2:
+            board_b4 = [c.value for c in self.board.cells]
+            self.reduction_by_sudoku()
+            self.main_gui.current_alg_type = Algorithm.SOLVING.ELIMINATION_BY_CONSTELLATION
+            self.board.update_all_board_references()
+            for i, row in enumerate(self.board.cell_rows_unresolved):
+                progress = i / 24
+                alg_progress_bar_handler(main_gui=self.main_gui, progress=progress)
+                self.reduction_by_constellation_optimized_set(cell_set=row)
+            self.board.update_all_board_references()
+            for i, col in enumerate(self.board.cell_cols_unresolved):
+                progress = i / 24 + 1/3
+                alg_progress_bar_handler(main_gui=self.main_gui, progress=progress)
+                self.reduction_by_constellation_optimized_set(cell_set=col)
+            self.board.update_all_board_references()
+            for i, box in enumerate(self.board.cell_boxes_unresolved):
+                progress = i / 24 + 2/3
+                alg_progress_bar_handler(main_gui=self.main_gui, progress=progress)
+                self.reduction_by_constellation_optimized_set(cell_set=box)
+            board_aftr = [c.value for c in self.board.cells]
+            if board_b4 == board_aftr:
+                no_change_iter_count += 1
+            else:
+                no_change_iter_count = 0
+        self.reduction_by_sudoku()
+        self.board.update_all_board_references()
+        self.backtracking(unresolved_cells=self.board.unresolved_cells)
 
 
 class Generator:
@@ -1128,7 +1180,8 @@ class MainGUI:
                 Algorithm.SOLVING.ELIMINATION_BY_CONSTELLATION.value,
                 Algorithm.SOLVING.ELIMINATION_OPTIMIZED.value,
                 Algorithm.SOLVING.BACKTRACKING.value,
-                Algorithm.SOLVING.BACKTRACKING_OPTIMIZED.value
+                Algorithm.SOLVING.BACKTRACKING_OPTIMIZED.value,
+                Algorithm.SOLVING.ELIMINATION_OPTIMIZED_PLUS_BACKTRACKING.value
             ],
             state="readonly",
             border_color=cd["black"],
@@ -1520,12 +1573,15 @@ class MainGUI:
             elif event.char.isdigit() and event.char != '0':
                 if int(event.char) == self.board.selected_cell.value:
                     self.board.selected_cell.clear_value()
-                    self.board.isSolved
-                    self.board.isUniquelySolvable
                 else:
                     self.board.selected_cell.set_given_value(value=int(event.char))
+                self.board.isSolved
+                self.board.isUniquelySolvable
+                self.board.selected_cell = self.board.selected_cell
             elif event.keysym == "BackSpace":
                 self.board.selected_cell.clear_value()
+                self.board.isSolved
+                self.board.isUniquelySolvable
 
     def on_alg_change(self, choice):
         self.selected_solving_algorithm = next((alg for alg in Algorithm.SOLVING if alg.value == choice), None)

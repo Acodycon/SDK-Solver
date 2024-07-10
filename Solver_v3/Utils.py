@@ -59,6 +59,7 @@ class Algorithm:
         ELIMINATION_OPTIMIZED = "Optimized Elimination"
         BACKTRACKING = "Backtracking"
         BACKTRACKING_OPTIMIZED = "Optimized Backtracking"
+        ELIMINATION_OPTIMIZED_PLUS_BACKTRACKING = "Optimized Elimination + Backtracking"
 
 
 class ValueLabel(ctk.CTkLabel):
