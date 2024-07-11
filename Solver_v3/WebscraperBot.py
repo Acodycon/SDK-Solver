@@ -22,7 +22,7 @@ driver = webdriver.Edge(service=service)
 # # And of these results select the first one that has the attribute 'data-difficulty' set to 'extreme'
 # select_extreme_diff_button.click()
 # Alternatively, driver.get("https://sudoku.com/extreme/") would yield the same
-driver.get("https://sudoku.com/easy")  # Opens the browser window
+driver.get("https://sudoku.com/extreme")  # Opens the browser window
 
 cookie_preferences_button = WebDriverWait(driver=driver, timeout=5).until(
     # Wait for cookie preferences button to appear
@@ -46,10 +46,8 @@ board = WebDriverWait(driver=driver, timeout=5).until(
         By.ID, "game"
     ))
 )
-
 location = board.location
 size = board.size
-
 driver.save_screenshot("screenhot.png")
 
 x = location['x']
@@ -85,4 +83,5 @@ for row in range(9):
 
 for row in board_converted:
     print(row)
+time.sleep(120)
 driver.quit()  # Quits the browser window

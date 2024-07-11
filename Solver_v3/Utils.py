@@ -12,10 +12,16 @@ class SolveType(Enum):
 
 
 class Difficulty(Enum):
-    EASY = 0
-    MEDIUM = 1
-    HARD = 2
-    EXTREME = 3
+    EASY = "Easy"
+    MEDIUM = "Medium"
+    HARD = "Hard"
+    EXTREME = "Extreme"
+    EASY_SUDOKU_COM = "Easy from sudoku.com"
+    MEDIUM_SUDOKU_COM = "Medium from sudoku.com"
+    HARD_SUDOKU_COM = "Hard from sudoku.com"
+    EXPERT_SUDOKU_COM = "Expert from sudoku.com"
+    MASTER_SUDOKU_COM = "Master from sudoku.com"
+    EXTREME_SUDOKU_COM = "Extreme from sudoku.com"
 
 
 class CellChange(Enum):

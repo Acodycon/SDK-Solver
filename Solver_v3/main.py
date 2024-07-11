@@ -1,5 +1,15 @@
 import copy
-from enum import Enum
+import time
+from io import BytesIO
+
+from selenium import webdriver
+from selenium.webdriver.edge.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from PIL import Image
+import tensorflow as tf
+import numpy as np
 from itertools import combinations
 from typing import Any
 
@@ -1051,6 +1061,74 @@ class Generator:
                 return random.randrange(29, 33)
             case Difficulty.EXTREME:
                 return random.randrange(19, 23)
+            case Difficulty.EASY_SUDOKU_COM:
+                return "easy"
+            case Difficulty.MEDIUM_SUDOKU_COM:
+                return "medium"
+            case Difficulty.HARD_SUDOKU_COM:
+                return "hard"
+            case Difficulty.EXPERT_SUDOKU_COM:
+                return "expert"
+            case Difficulty.MASTER_SUDOKU_COM:
+                return "evil"
+            case Difficulty.EXTREME_SUDOKU_COM:
+                return "extreme"
+
+    def fetch_board_from_web(self):
+        service = Service(executable_path="D:\\Coding\\SudokuSolver\\SudokuSolver\\Solver_v3\\msedgedriver.exe")
+        driver = webdriver.Edge(service=service)
+        driver.get(f"https://sudoku.com/{self.get_difficulty_range()}")
+        #  Cookie shit
+        cookie_preferences_button = WebDriverWait(driver=driver, timeout=5).until(
+            EC.presence_of_element_located((
+                By.ID, "onetrust-pc-btn-handler"
+            ))
+        )
+        cookie_preferences_button.click()
+        only_necessary_cookies = WebDriverWait(driver=driver, timeout=5).until(
+            EC.presence_of_element_located((
+                By.CLASS_NAME, "ot-pc-refuse-all-handler"
+            ))
+        )
+        only_necessary_cookies.click()
+        #  Get board location, size
+        board = WebDriverWait(driver=driver, timeout=5).until(
+            EC.presence_of_element_located((
+                By.ID, "game"
+            ))
+        )
+        location = board.location
+        size = board.size
+        time.sleep(3)
+        board_png = board.screenshot_as_png
+        board_png = Image.open(BytesIO(board_png))
+        x = location['x']
+        y = location['y']
+        width = location['x'] + size['width']
+        height = location['y'] + size['height']
+        # window_png = Image.open(BytesIO(window_png))
+        # board_png = window_png.crop((int(x), int(y), int(width), int(height)))
+        board_png.save("board.png")
+        xy_start = [2, 56, 110, 163, 217, 270, 325, 377, 431]
+        xy_stop = [54, 108, 160, 215, 268, 322, 375, 429, 483]
+        #  Initiate digit recognition AI
+        model = tf.keras.models.load_model("D:\\Coding\\SudokuSolver\\SudokuSolver\\Solver_v3\\recog_model.keras")
+        driver.quit()
+        board_converted = [[None for i in range(9)] for j in range(9)]
+        for row in range(9):
+            for col in range(9):
+                cell_png = board_png.crop((xy_start[col], xy_start[row], xy_stop[col], xy_stop[row]))
+                cell_png = cell_png.resize((28, 28))
+                cell_png = cell_png.convert("L")
+                cell_png = cell_png.point(lambda p: p > 200 and 255)
+                cell_array = np.array(cell_png).reshape(1, 28, 28, 1)
+                prediction = model.predict(cell_array)
+                value = np.argmax(prediction)
+                if value:
+                    self.board.cell_rows[row][col].set_given_value(np.argmax(prediction))
+                board_converted[row][col] = np.argmax(prediction)
+        for row in board_converted:
+            print(row)
 
 
 class BackgroundGenerator:
@@ -1263,7 +1341,7 @@ class MainGUI:
 
         self.choose_difficulty_combo_box = ctk.CTkComboBox(
             master=self.button_frame,
-            values=[diff.name for diff in Difficulty],
+            values=[diff.value for diff in Difficulty],
             state="readonly",
             border_color=cd["black"],
             fg_color=cd["grey"],
@@ -1526,13 +1604,23 @@ class MainGUI:
             self.background_solver.solve()
 
     def generate(self):
-        print("generate")
-        if self.show_alg:
-            print("with generate")
-            self.generator.generate()
+        print(f"generate, diff: {self.difficulty}")
+        if self.difficulty in [
+            Difficulty.EASY_SUDOKU_COM,
+            Difficulty.MEDIUM_SUDOKU_COM,
+            Difficulty.HARD_SUDOKU_COM,
+            Difficulty.EXPERT_SUDOKU_COM,
+            Difficulty.MASTER_SUDOKU_COM,
+            Difficulty.EXTREME_SUDOKU_COM
+        ]:
+            self.generator.fetch_board_from_web()
         else:
-            print("with bg generator")
-            self.background_generator.generate()
+            if self.show_alg:
+                print("with generate")
+                self.generator.generate()
+            else:
+                print("with bg generator")
+                self.background_generator.generate()
 
     def on_key_press(self, event):
         if self.board.selected_cell:
@@ -1594,7 +1682,7 @@ class MainGUI:
         self.show_alg = self.check_box_helper_var.get()
 
     def on_diff_change(self, choice):
-        self.difficulty = next((diff for diff in Difficulty if diff.name == choice), None)
+        self.difficulty = next((diff for diff in Difficulty if diff.value == choice), None)
 
     def on_solve_until_change(self, choice):
         self.solve_until = next((solve_type for solve_type in SolveType if solve_type.value == choice), None)
