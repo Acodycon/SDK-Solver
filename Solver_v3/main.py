@@ -2,6 +2,9 @@ import copy
 import time
 from io import BytesIO
 
+import mss
+import mss.tools
+import pyautogui
 from selenium import webdriver
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
@@ -964,8 +967,6 @@ class Solver:
                                       alg_speed_multiplier=self.main_gui.alg_speed_multiplier)
 
     def reduction_by_constellation_plus_backtracking(self):
-        board_b4 = 0
-        board_aftr = 1
         no_change_iter_count = 0
         while no_change_iter_count < 2:
             board_b4 = [c.value for c in self.board.cells]
@@ -1384,6 +1385,37 @@ class MainGUI:
         )
         self.reset_board_button.grid(row=3, column=1, padx=(110, 50), pady=25)
 
+        self.is_bot_running = False
+        self.solve_in_browser_button = ctk.CTkButton(
+            master=self.button_frame,
+            text="Activate sudoku.com bot",
+            font=("Arial", 20),
+            text_color=cd["black"],
+            height=50,
+            corner_radius=30,
+            border_width=3,
+            border_color=cd["dark-grey"],
+            fg_color=cd["banana"],
+            hover_color=cd["pale-yellow"],
+            command=self.start_bot
+        )
+        self.solve_in_browser_button.grid(row=4, column=0, padx=(110, 50), pady=25)
+
+        self.stop_solving_button = ctk.CTkButton(
+            master=self.button_frame,
+            text="Stop solving bot",
+            font=("Arial", 20),
+            text_color=cd["black"],
+            height=50,
+            corner_radius=30,
+            border_width=3,
+            border_color=cd["dark-grey"],
+            fg_color=cd["banana"],
+            hover_color=cd["pale-yellow"],
+            command=self.stop_bot
+        )
+        self.stop_solving_button.grid(row=4, column=1, padx=(110, 50), pady=25)
+
         ######### Statistics 4 Nerds ######################################################################
         ###################################################################################################
 
@@ -1687,6 +1719,83 @@ class MainGUI:
     def on_solve_until_change(self, choice):
         self.solve_until = next((solve_type for solve_type in SolveType if solve_type.value == choice), None)
         print(self.solve_until.value)
+
+    def stop_bot(self):
+        self.is_bot_running = False
+
+    def start_bot(self):
+        self.is_bot_running = True
+        self.fetch_board()
+
+    def fetch_board(self):
+        self.selected_solving_algorithm = Algorithm.SOLVING.ELIMINATION_OPTIMIZED_PLUS_BACKTRACKING
+        while self.is_bot_running:
+            with mss.mss() as sct:
+                monitor_number = 2
+                mon = sct.monitors[monitor_number]
+
+                monitor = {
+                    "top": mon["top"],
+                    "left": mon["left"],
+                    "width": mon["width"],
+                    "height": mon["height"],
+                    "mon": monitor_number,
+                }
+
+                # Grab the data
+                sct_img = sct.grab(monitor)
+
+                # Save to the picture file
+                output = "monitor.png".format(**monitor)
+                mss.tools.to_png(sct_img.rgb, sct_img.size, output=output)
+                window_png = Image.open("monitor.png")
+                board_png = window_png.crop((366, 236, 866, 736))
+                board_png.save("test_board.png")
+                xy_start = [2, 58, 113, 168, 223, 278, 334, 388, 443]
+                xy_stop = [56, 111, 165, 221, 276, 331, 386, 441, 497]
+
+                model = tf.keras.models.load_model("recog_model.keras")
+                board_converted = [[0 for i in range(9)] for j in range(9)]
+
+                for row in range(9):
+                    for col in range(9):
+                        cell_png = board_png.crop((xy_start[col], xy_start[row], xy_stop[col], xy_stop[row]))
+                        cell_png = cell_png.resize((28, 28))
+                        cell_png = cell_png.convert("L")
+                        cell_png = cell_png.point(lambda p: p > 200 and 255)
+                        cell_array = np.array(cell_png).reshape(1, 28, 28, 1)
+                        prediction = model.predict(cell_array)
+                        value = np.argmax(prediction)
+                        if value:
+                            self.board.cell_rows[row][col].set_given_value(value=value)
+                        board_converted[row][col] = np.argmax(prediction)
+                x_shift = -1920
+                y_shift = 140
+                pyautogui.moveTo(-1525, 400)
+                pyautogui.click()
+                self.solve()
+                if self.board.isSolved:
+                    #  Solve sudoku.com board
+                    for row in self.board.cell_rows:
+                        for cell in row:
+                            pyautogui.press(f"{cell.value}")
+                            pyautogui.press("right")
+                        pyautogui.press("left", presses=8)
+                        pyautogui.press("down")
+                    self.board.clear_board()
+                    time.sleep(3)
+                    pyautogui.moveTo(1050 + x_shift, 650 + y_shift)
+                    pyautogui.click()
+                    pyautogui.moveTo(1050 + x_shift, 550 + y_shift)
+                    pyautogui.click()
+                else:
+                    self.board.clear_board()
+                    pyautogui.moveTo(1050 + x_shift, 700 + y_shift)
+                    pyautogui.click()
+                    time.sleep(1)
+                    pyautogui.moveTo(1050 + x_shift, 590 + y_shift)
+                    pyautogui.click()
+                time.sleep(5)
 
 
 if __name__ == "__main__":
